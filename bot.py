@@ -740,11 +740,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fmt = data.replace("export_", "")
         template_id = context.user_data.get("selected_template", "classic")
         optimized = context.user_data.get("optimized_resume")
-        candidate_name = context.user_data.get("candidate_name", "Candidate")
+        candidate_name = context.user_data.get("candidate_name") or "Candidate"
 
         if not optimized:
             await query.message.reply_text("❌ No optimized resume data. Please run /match again.")
             return ConversationHandler.END
+
+        # Sanitize: ensure no None values in optimized resume
+        if isinstance(optimized, dict):
+            for key, val in optimized.items():
+                if val is None:
+                    optimized[key] = "" if isinstance(val, str) or val is None else []
 
         template_names = {
             "classic": "📜 Classic",
