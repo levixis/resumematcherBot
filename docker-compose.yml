@@ -1,0 +1,9 @@
+services:
+  resume-bot:
+    build: .
+    container_name: resume-matcher-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./temp_files:/app/temp_files
