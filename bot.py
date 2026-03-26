@@ -75,18 +75,21 @@ ORIGINAL RESUME TEXT:
 JOB DESCRIPTION:
 {jd_text[:2000]}
 
-USER'S MESSAGE/FEEDBACK:
+USER'S MESSAGE:
 "{user_message}"
 
-Based on the user's feedback, do TWO things:
+You can do THREE things based on what the user says:
 
-1. Give a friendly, helpful reply to the user (2-3 sentences max)
-2. If they asked for a change to the resume, update the optimized resume data
+1. **Answer questions about the CV** — If they ask things like "What skills do I have?", "How many years of experience?", "What's my summary?", answer by looking at the resume data above. Be specific and quote from their actual CV.
+
+2. **Make changes to the CV** — If they ask you to add/remove/change something (e.g. "Add Docker to skills", "Change my title to Senior Dev"), apply the change to the optimized resume data.
+
+3. **Give career advice** — If they ask general career questions related to the JD or resume, give helpful advice.
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {{
-    "reply": "Your friendly response to the user",
-    "updated_resume": {{ ... the full updated optimized resume dict, or null if no changes needed ... }},
+    "reply": "Your friendly, detailed response to the user",
+    "updated_resume": {{ ... the full updated optimized resume dict, or null if no changes were needed ... }},
     "changes_made": true/false
 }}
 
