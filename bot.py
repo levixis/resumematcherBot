@@ -126,11 +126,48 @@ def _gemini_generate(prompt: str) -> str:
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-2.5-flash")
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt + "\n\nIMPORTANT: Keep your total response under 3500 characters.")
         return response.text.strip()
     except Exception as e:
         logger.error(f"Gemini error: {e}")
         return f"❌ AI error: {e}"
+
+
+async def _send_long_message(message, text: str, reply_markup=None, parse_mode="Markdown"):
+    """Send a message, splitting into chunks if it exceeds Telegram's 4096 char limit."""
+    MAX_LEN = 4000
+    if len(text) <= MAX_LEN:
+        await message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        return
+
+    # Split into chunks at newlines
+    chunks = []
+    current = ""
+    for line in text.split("\n"):
+        if len(current) + len(line) + 1 > MAX_LEN:
+            chunks.append(current)
+            current = line
+        else:
+            current += ("\n" + line if current else line)
+    if current:
+        chunks.append(current)
+
+    # Send all chunks, last one gets the reply_markup
+    for i, chunk in enumerate(chunks):
+        is_last = (i == len(chunks) - 1)
+        try:
+            await message.reply_text(
+                chunk,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup if is_last else None
+            )
+        except Exception:
+            # Fallback: send without markdown if formatting fails
+            await message.reply_text(
+                chunk,
+                reply_markup=reply_markup if is_last else None
+            )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -892,9 +929,9 @@ Format your response nicely with emojis and clear sections. Use markdown bold fo
 
     result = _gemini_generate(prompt)
 
-    await message.reply_text(
+    await _send_long_message(
+        message,
         f"🎯 *MOCK INTERVIEW QUESTIONS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
-        parse_mode="Markdown",
         reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
     )
 
@@ -932,9 +969,9 @@ Format nicely with emojis."""
 
     result = _gemini_generate(prompt)
 
-    await message.reply_text(
+    await _send_long_message(
+        message,
         f"💼 *INTERVIEW PREPARATION*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
-        parse_mode="Markdown",
         reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
     )
 
@@ -969,9 +1006,9 @@ Format with emojis for readability."""
 
     result = _gemini_generate(prompt)
 
-    await message.reply_text(
+    await _send_long_message(
+        message,
         f"💪 *RESUME STRENGTH ANALYSIS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
-        parse_mode="Markdown",
         reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
     )
 
@@ -1006,9 +1043,9 @@ Format with emojis."""
 
     result = _gemini_generate(prompt)
 
-    await message.reply_text(
+    await _send_long_message(
+        message,
         f"🚀 *CAREER GROWTH TIPS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
-        parse_mode="Markdown",
         reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
     )
 
