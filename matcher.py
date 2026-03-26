@@ -44,16 +44,27 @@ def analyze_match(resume_text: str, jd_text: str) -> dict:
 
     prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer and career coach.
 
-Analyze how well the following RESUME matches the JOB DESCRIPTION. Be thorough and constructive.
+IMPORTANT — SMART INPUT DETECTION:
+Before analyzing, check the two inputs below. Users sometimes make mistakes:
+- If INPUT 1 looks like a Job Description and INPUT 2 looks like a Resume, SWAP them automatically and proceed.
+- If BOTH inputs look like resumes, pick the more detailed one as the Resume and note the issue in your summary.
+- If BOTH inputs look like job descriptions, pick the more detailed one as the JD and note the issue.
+- A Resume typically has: name, contact info, skills list, work experience with dates, education, projects.
+- A Job Description typically has: job title, requirements, responsibilities, qualifications, company info.
 
-=== RESUME ===
+Always proceed with the best interpretation and mention any swap/issue in the "input_detection" field.
+
+Analyze how well the RESUME matches the JOB DESCRIPTION. Be thorough and constructive.
+
+=== INPUT 1 (User said this is their RESUME) ===
 {resume_text}
 
-=== JOB DESCRIPTION ===
+=== INPUT 2 (User said this is the JOB DESCRIPTION) ===
 {jd_text}
 
 Return your analysis as a valid JSON object with EXACTLY this structure (no markdown, no code blocks, just pure JSON):
 {{
+    "input_detection": "ok | swapped | both_resumes | both_jds — describe what you detected and any auto-correction you made",
     "candidate_name": "The candidate's full name extracted from the resume, or null if not found",
     "overall_score": <number 0-100>,
     "skills_score": <number 0-100>,

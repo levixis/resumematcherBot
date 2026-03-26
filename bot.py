@@ -144,7 +144,15 @@ def _format_results(result: dict) -> str:
     else:
         header = "🔧 *NEEDS IMPROVEMENT*"
 
-    msg = f"""
+    msg = ""
+
+    # Show input detection warning if inputs were swapped or incorrect
+    input_det = result.get("input_detection", "ok")
+    if input_det and not input_det.startswith("ok"):
+        msg += "⚠️ *INPUT DETECTION WARNING*\n"
+        msg += f"_{input_det}_\n\n"
+
+    msg += f"""
 {header}
 
 ━━━━━━━━━━━━━━━━━━━━━━━
