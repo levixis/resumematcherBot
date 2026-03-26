@@ -612,11 +612,18 @@ async def handle_user_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = f"💬 {reply}\n\n"
         msg += "_Keep typing suggestions, or say *done* to finish:_"
 
-    await update.message.reply_text(
-        msg,
-        parse_mode="Markdown",
-        reply_markup=_results_keyboard(True)
-    )
+    try:
+        await update.message.reply_text(
+            msg,
+            parse_mode="Markdown",
+            reply_markup=_results_keyboard(True)
+        )
+    except Exception:
+        # Fallback: send without markdown if Gemini's reply has broken formatting
+        await update.message.reply_text(
+            msg,
+            reply_markup=_results_keyboard(True)
+        )
     return SHOWING_RESULTS
 
 
