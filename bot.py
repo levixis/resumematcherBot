@@ -5,9 +5,13 @@ and generates optimized CVs in multiple template styles and export formats.
 
 Features:
 - Interactive chat: users can give suggestions & refine the CV
-- Name input: bot asks for the user's name before generating
+- Name input: auto-extracts or asks for user's name
 - Template selection: Classic, Modern, Minimal, ATS-Friendly
 - Export formats: PDF, DOCX, Both
+- Mock Interview: AI-generated interview questions from resume+JD
+- Interview Tips: Personalized preparation advice
+- Career Tips: Actionable career growth suggestions
+- Resume Strength: Detailed strengths & weaknesses analysis
 """
 
 import os
@@ -115,6 +119,20 @@ Keep the same structure. Apply the user's feedback precisely."""
         }
 
 
+def _gemini_generate(prompt: str) -> str:
+    """Generic Gemini call that returns text."""
+    import google.generativeai as genai
+
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        logger.error(f"Gemini error: {e}")
+        return f"❌ AI error: {e}"
+
+
 # ─────────────────────────────────────────────────────────────
 # Helper Functions
 # ─────────────────────────────────────────────────────────────
@@ -208,6 +226,14 @@ def _results_keyboard(has_optimized: bool = True) -> InlineKeyboardMarkup:
             InlineKeyboardButton("📄 Generate Optimized CV", callback_data="ask_name")
         ])
     keyboard.append([
+        InlineKeyboardButton("🎯 Mock Interview", callback_data="mock_interview"),
+        InlineKeyboardButton("💼 Interview Tips", callback_data="interview_tips"),
+    ])
+    keyboard.append([
+        InlineKeyboardButton("💪 Resume Strength", callback_data="resume_strength"),
+        InlineKeyboardButton("🚀 Career Tips", callback_data="career_tips"),
+    ])
+    keyboard.append([
         InlineKeyboardButton("🔄 New Analysis", callback_data="new_analysis"),
         InlineKeyboardButton("ℹ️ Help", callback_data="show_help")
     ])
@@ -218,40 +244,50 @@ def _results_keyboard(has_optimized: bool = True) -> InlineKeyboardMarkup:
 # Bot Handlers
 # ─────────────────────────────────────────────────────────────
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("📊 Match Resume & JD", callback_data="start_match")],
+        [InlineKeyboardButton("📚 How to Use", callback_data="show_help")],
+    ]
     welcome_msg = """
 🤖 *Resume-JD Matcher Bot*
 
-Welcome! I help you match your resume against job descriptions and optimize your CV.
+Welcome! I'm your AI-powered career assistant.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 📋 *What I can do:*
 ━━━━━━━━━━━━━━━━━━━━━━━
 
-1️⃣  Analyze how well your resume matches a JD
-2️⃣  Give you a detailed score breakdown
-3️⃣  Suggest improvements to your resume
-4️⃣  *Chat with me* to refine your CV!
-5️⃣  Generate optimized CV in *4 template styles*:
-
-   📜 *Classic* — Traditional single-column
-   🎨 *Modern* — Two-column with sidebar
-   ✨ *Minimal* — Clean, whitespace-heavy
-   🤖 *ATS-Friendly* — Optimized for scanners
+📊  Match resume against JD (score + analysis)
+💬  Interactive chat to refine your CV
+📄  Generate optimized CV in 4 templates
+🎯  Mock interview questions from your resume
+💼  Personalized interview preparation tips
+💪  Resume strength & weakness analysis
+🚀  Career growth suggestions
 
 ━━━━━━━━━━━━━━━━━━━━━━━
+🎨 *CV Templates:*
+   📜 Classic | 🎨 Modern | ✨ Minimal | 🤖 ATS-Friendly
+
 🚀 *Get started:*  Send /match
-📚 *Need help?:*   Send /help
+📚 *Menu:*         Send /menu
 """
-    await update.message.reply_text(welcome_msg, parse_mode="Markdown")
+    await update.message.reply_text(
+        welcome_msg, parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_msg = """
-📚 *Available Commands*
+📚 *Commands & Features*
 
-/start  — Welcome message & info
+/start  — Welcome message
 /match  — Start resume-JD matching
-/help   — Show this help message
+/menu   — Open feature menu
+/mock   — Mock interview questions
+/tips   — Career & interview tips
+/help   — Show this help
 /cancel — Cancel current operation
 
 ━━━━━━━━━━━━━━━━━━━━━━━
@@ -259,27 +295,72 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ━━━━━━━━━━━━━━━━━━━━━━━
 
 1. Send /match
-2. Upload your resume (PDF, DOCX, TXT) or paste
-3. Send the Job Description (text or file)
-4. Get your score & suggestions!
-5. 💬 *Chat with me* to refine your CV:
+2. Upload resume (PDF, DOCX, TXT) or paste
+3. Send the Job Description
+4. Get score, suggestions & improvements!
+5. 💬 *Chat with me* to refine:
    • _"Add Docker to my skills"_
-   • _"Make summay more technical"_
-   • _"Change job title to Senior Dev"_
-   • _"Remove the second project"_
-6. Generate CV → pick template → pick format
-7. Download your optimized CV!
-
-━━━━━━━━━━━━━━━━━━━━━━━
-🎨 *CV Templates:*
-━━━━━━━━━━━━━━━━━━━━━━━
-
-📜 *Classic* — Formal single-column
-🎨 *Modern* — Two-column with sidebar
-✨ *Minimal* — Clean elegant design
-🤖 *ATS-Friendly* — Passes all scanners
+   • _"What experience do I have?"_
+   • _"Make summary more technical"_
+6. Use the *menu buttons* for more features:
+   • 🎯 Mock Interview Questions
+   • 💼 Interview Preparation Tips
+   • 💪 Resume Strength Analysis
+   • 🚀 Career Growth Tips
+7. Generate CV → pick template → download!
+8. Type *done* when finished.
 """
     await update.message.reply_text(help_msg, parse_mode="Markdown")
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the main feature menu."""
+    has_data = bool(context.user_data.get("analysis_result"))
+
+    keyboard = [
+        [InlineKeyboardButton("📊 Match Resume & JD", callback_data="start_match")],
+    ]
+    if has_data:
+        keyboard.extend([
+            [InlineKeyboardButton("📄 Generate Optimized CV", callback_data="ask_name")],
+            [
+                InlineKeyboardButton("🎯 Mock Interview", callback_data="mock_interview"),
+                InlineKeyboardButton("💼 Interview Tips", callback_data="interview_tips"),
+            ],
+            [
+                InlineKeyboardButton("💪 Resume Strength", callback_data="resume_strength"),
+                InlineKeyboardButton("🚀 Career Tips", callback_data="career_tips"),
+            ],
+        ])
+    keyboard.append([
+        InlineKeyboardButton("ℹ️ Help", callback_data="show_help")
+    ])
+
+    status = "✅ Resume & JD loaded" if has_data else "⚡ No resume loaded yet — start with Match!"
+
+    await update.message.reply_text(
+        f"📋 *Main Menu*\n\n_{status}_\n",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def mock_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Direct command for mock interview."""
+    if not context.user_data.get("analysis_result"):
+        await update.message.reply_text(
+            "❌ Please run /match first to analyze your resume, then I can generate mock interview questions!")
+        return
+    await _generate_mock_interview(update.message, context)
+
+
+async def tips_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Direct command for tips."""
+    if not context.user_data.get("analysis_result"):
+        await update.message.reply_text(
+            "❌ Please run /match first to analyze your resume, then I can give personalized tips!")
+        return
+    await _generate_interview_tips(update.message, context)
 
 
 async def match_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -730,6 +811,206 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📚 Send /help for detailed usage instructions!")
         return SHOWING_RESULTS
 
+    # ── Start Match from menu ──
+    elif data == "start_match":
+        context.user_data.clear()
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(
+            "📄 *Step 1/2: Upload Your Resume*\n\n"
+            "Send your resume as a file (PDF, DOCX, TXT) or paste it!",
+            parse_mode="Markdown"
+        )
+        return WAITING_RESUME
+
+    # ── Mock Interview ──
+    elif data == "mock_interview":
+        if not context.user_data.get("analysis_result"):
+            await query.message.reply_text("❌ Please run /match first!")
+            return SHOWING_RESULTS
+        await query.edit_message_reply_markup(reply_markup=None)
+        await _generate_mock_interview(query.message, context)
+        return SHOWING_RESULTS
+
+    # ── Interview Tips ──
+    elif data == "interview_tips":
+        if not context.user_data.get("analysis_result"):
+            await query.message.reply_text("❌ Please run /match first!")
+            return SHOWING_RESULTS
+        await query.edit_message_reply_markup(reply_markup=None)
+        await _generate_interview_tips(query.message, context)
+        return SHOWING_RESULTS
+
+    # ── Resume Strength ──
+    elif data == "resume_strength":
+        if not context.user_data.get("analysis_result"):
+            await query.message.reply_text("❌ Please run /match first!")
+            return SHOWING_RESULTS
+        await query.edit_message_reply_markup(reply_markup=None)
+        await _generate_resume_strength(query.message, context)
+        return SHOWING_RESULTS
+
+    # ── Career Tips ──
+    elif data == "career_tips":
+        if not context.user_data.get("analysis_result"):
+            await query.message.reply_text("❌ Please run /match first!")
+            return SHOWING_RESULTS
+        await query.edit_message_reply_markup(reply_markup=None)
+        await _generate_career_tips(query.message, context)
+        return SHOWING_RESULTS
+
+
+# ─────────────────────────────────────────────────────────────
+# AI Feature Generators
+# ─────────────────────────────────────────────────────────────
+async def _generate_mock_interview(message, context):
+    """Generate mock interview questions based on resume + JD."""
+    await message.reply_text("🎯 *Generating mock interview questions...*", parse_mode="Markdown")
+
+    resume = context.user_data.get("resume_text", "")[:2000]
+    jd = context.user_data.get("jd_text", "")[:2000]
+
+    prompt = f"""You are an expert technical interviewer.
+
+Based on this RESUME and JOB DESCRIPTION, generate realistic interview questions.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{jd}
+
+Generate exactly:
+- 3 Technical/Skills questions (based on the required skills)
+- 2 Behavioral questions (STAR method format)
+- 2 Experience questions (about their specific work history)
+- 1 Situational question
+- 2 Questions the candidate should ask the interviewer
+
+For each question, also provide a brief hint on how to answer it well (1-2 lines).
+
+Format your response nicely with emojis and clear sections. Use markdown bold for section headers."""
+
+    result = _gemini_generate(prompt)
+
+    await message.reply_text(
+        f"🎯 *MOCK INTERVIEW QUESTIONS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
+        parse_mode="Markdown",
+        reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
+    )
+
+
+async def _generate_interview_tips(message, context):
+    """Generate personalized interview preparation tips."""
+    await message.reply_text("💼 *Preparing your interview tips...*", parse_mode="Markdown")
+
+    resume = context.user_data.get("resume_text", "")[:2000]
+    jd = context.user_data.get("jd_text", "")[:2000]
+    score = context.user_data.get("analysis_result", {}).get("overall_score", 50)
+
+    prompt = f"""You are a career coach preparing a candidate for an interview.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{jd}
+
+MATCH SCORE: {score}/100
+
+Provide personalized interview preparation advice:
+
+1. How to present yourself (opening pitch based on their actual experience)
+2. Key strengths to emphasize (from their resume that match the JD)
+3. Weakness areas to prepare for (gaps between resume and JD)
+4. Salary negotiation tips (based on the role)
+5. Body language and communication tips
+6. Common mistakes to avoid for this specific role
+7. Day-before checklist (what to prepare)
+
+Be specific to THIS candidate and THIS job. Use their actual experience and skills.
+Format nicely with emojis."""
+
+    result = _gemini_generate(prompt)
+
+    await message.reply_text(
+        f"💼 *INTERVIEW PREPARATION*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
+        parse_mode="Markdown",
+        reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
+    )
+
+
+async def _generate_resume_strength(message, context):
+    """Analyze resume strengths and weaknesses in detail."""
+    await message.reply_text("💪 *Analyzing your resume...*", parse_mode="Markdown")
+
+    resume = context.user_data.get("resume_text", "")[:2000]
+    jd = context.user_data.get("jd_text", "")[:2000]
+
+    prompt = f"""You are a senior recruiter who has reviewed 10,000+ resumes.
+
+RESUME:
+{resume}
+
+JOB DESCRIPTION:
+{jd}
+
+Give a brutally honest but constructive analysis:
+
+1. Top 5 Strengths of this resume (what stands out)
+2. Top 5 Weaknesses (what's missing or poorly presented)
+3. Red Flags a recruiter would notice
+4. ATS Compatibility — would this pass ATS scanners? Why/why not?
+5. Format and Structure rating (1-10) with explanation
+6. Impact Score — do the bullets show impact or just duties?
+7. One-line verdict — would you shortlist this candidate?
+
+Be specific. Quote actual lines from the resume when pointing out issues.
+Format with emojis for readability."""
+
+    result = _gemini_generate(prompt)
+
+    await message.reply_text(
+        f"💪 *RESUME STRENGTH ANALYSIS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
+        parse_mode="Markdown",
+        reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
+    )
+
+
+async def _generate_career_tips(message, context):
+    """Generate personalized career growth tips."""
+    await message.reply_text("🚀 *Generating career tips...*", parse_mode="Markdown")
+
+    resume = context.user_data.get("resume_text", "")[:2000]
+    jd = context.user_data.get("jd_text", "")[:2000]
+
+    prompt = f"""You are a career strategist helping someone grow in their career.
+
+RESUME:
+{resume}
+
+TARGET JOB:
+{jd}
+
+Provide actionable career advice:
+
+1. Skills Gap Analysis — What skills should they learn next? (be specific with resources/courses)
+2. Certifications — Which certifications would boost their profile for this role?
+3. Portfolio/Projects — What side projects or contributions would strengthen their application?
+4. Networking Strategy — How to network for this specific role/industry
+5. Career Path — What's the typical progression from their current level?
+6. Timeline — Realistic timeline to become a strong candidate if they're not yet
+7. Quick Wins — 3 things they can do THIS WEEK to improve
+
+Be specific to their experience level and target role.
+Format with emojis."""
+
+    result = _gemini_generate(prompt)
+
+    await message.reply_text(
+        f"🚀 *CAREER GROWTH TIPS*\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{result}",
+        parse_mode="Markdown",
+        reply_markup=_results_keyboard(bool(context.user_data.get("optimized_resume")))
+    )
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -797,7 +1078,11 @@ def main():
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("menu", menu_command))
+    app.add_handler(CommandHandler("mock", mock_command))
+    app.add_handler(CommandHandler("tips", tips_command))
     app.add_handler(conv_handler)
+    app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown_message))
 
     print("  ✅ Bot is running! Press Ctrl+C to stop.")
