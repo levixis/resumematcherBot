@@ -70,6 +70,13 @@ Return your analysis as a valid JSON object with EXACTLY this structure (no mark
         "Specific actionable suggestion 5"
     ],
     "summary": "2-3 sentence overall assessment",
+    "improvements_made": [
+        "Specific change 1: e.g. Rewrote professional summary to highlight cloud experience",
+        "Specific change 2: e.g. Added missing keywords: Docker, Kubernetes, CI/CD",
+        "Specific change 3: e.g. Reordered skills to prioritize JD requirements",
+        "Specific change 4: e.g. Quantified achievements in experience bullets",
+        "Specific change 5: e.g. Tailored project descriptions to match JD focus areas"
+    ],
     "optimized_resume": {{
         "professional_summary": "A powerful 3-4 line summary tailored to this JD",
         "skills": ["skill1", "skill2", ...],
@@ -103,7 +110,8 @@ IMPORTANT RULES:
 2. Suggestions must be specific and actionable
 3. The optimized_resume should keep the candidate's real information but reword/restructure it to better match the JD
 4. Include all relevant skills from both the resume and JD
-5. Return ONLY valid JSON, no extra text"""
+5. improvements_made must list EXACTLY what you changed in the optimized CV vs the original resume (be specific, e.g. 'Added Docker, Kubernetes to skills', 'Rewrote summary to emphasize backend experience')
+6. Return ONLY valid JSON, no extra text"""
 
     try:
         response = model.generate_content(prompt)

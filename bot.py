@@ -180,6 +180,12 @@ def _format_results(result: dict) -> str:
         for i, sug in enumerate(suggestions, 1):
             msg += f"\n*{i}.* {sug}\n"
 
+    improvements = result.get("improvements_made", [])
+    if improvements:
+        msg += "\n━━━━━━━━━━━━━━━━━━━━━━━\n🔧 *WHAT WE IMPROVED IN YOUR CV*\n━━━━━━━━━━━━━━━━━━━━━━━\n"
+        for i, imp in enumerate(improvements, 1):
+            msg += f"\n✏️ *{i}.* {imp}\n"
+
     return msg
 
 
